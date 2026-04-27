@@ -37,9 +37,8 @@ const S = {
   btnOutline: { background: "transparent", color: T.primary, border: `2px solid ${T.primary}`, borderRadius: 14, padding: "13px 24px", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" },
 };
 
-const openMaps  = (addr) => { if (!addr) return; window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank'); };
+const openMaps = (addr) => { if (!addr) return; window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank'); };
 
-// Calculate distance & ETA using OpenStreetMap (free, no API key)
 const calcRoute = async (from, to) => {
   try {
     const geo = async (addr) => {
@@ -58,7 +57,6 @@ const calcRoute = async (from, to) => {
   } catch { return null; }
 };
 
-// ─── Shared UI ────────────────────────────────────────────────────
 const StatusDot = ({ status }) => {
   const map = { pending:[T.warning,"Pending"], accepted:[T.info,"Accepted"], preparing:[T.info,"Preparing"], ready:[T.success,"Ready"], delivering:[T.primary,"Delivering"], delivered:[T.muted,"Delivered"], cancelled:[T.danger,"Cancelled"] };
   const [col, label] = map[status] || [T.muted, status];
@@ -86,7 +84,6 @@ const TopBar = ({ title, back, action }) => (
   </div>
 );
 
-// Contact buttons: SMS + Call
 const ContactBtns = ({ phone, smsLabel="SMS", callLabel="Call" }) => !phone ? null : (
   <div style={{ display:"flex", gap:6, marginTop:6 }}>
     <a href={`sms:${phone}`} style={{ flex:1, background:T.warningLight, color:T.warning, borderRadius:8, padding:"6px 4px", fontSize:11, fontWeight:700, textDecoration:"none", textAlign:"center", display:"block" }}>💬 {smsLabel}</a>
@@ -141,14 +138,14 @@ const WelcomeScreen = ({ onStart }) => (
 );
 
 /* ══════════════════════════════════════════════════════════════════
-   ROLE SELECT
+   ROLE SELECT — Admin hidden from public
 ══════════════════════════════════════════════════════════════════ */
-const RoleSelectScreen = ({ onSelect }) => {
+const RoleSelectScreen = ({ onSelect, showAdmin }) => {
   const roles = [
     { id:"customer", emoji:"🛒", label:"Customer",       desc:"Order homemade food from local chefs",  color:"#FF6B35" },
     { id:"cook",     emoji:"👨‍🍳", label:"Home Chef",      desc:"Sell your homemade meals locally",      color:"#F5A623" },
     { id:"driver",   emoji:"🛵", label:"Delivery Driver", desc:"Deliver orders and earn money",         color:"#22C55E" },
-
+    ...(showAdmin ? [{ id:"admin", emoji:"⚙️", label:"Admin", desc:"Manage the platform", color:"#3B82F6" }] : []),
   ];
   return (
     <div style={{ minHeight:"100vh", background:T.bg, padding:"50px 22px 40px" }}>
@@ -234,9 +231,11 @@ const AuthScreen = ({ role, onLogin, onBack }) => {
             {mode==="login" ? "Sign Up" : "Sign In"}
           </span>
         </div>
-        <div style={{ textAlign:"center", marginTop:16 }}>
-          <span style={{ color:T.muted, fontSize:13, cursor:"pointer" }} onClick={onBack}>← Change role</span>
-        </div>
+        {onBack && (
+          <div style={{ textAlign:"center", marginTop:16 }}>
+            <span style={{ color:T.muted, fontSize:13, cursor:"pointer" }} onClick={onBack}>← Change role</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -318,7 +317,6 @@ const CustomerHome = ({ addToCart, onFoodSelect }) => {
   );
 };
 
-/* ── Food Detail ─────────────────────────────────────────────────── */
 const FoodDetail = ({ food, onBack, addToCart }) => {
   const [qty, setQty] = useState(1);
   return (
@@ -365,7 +363,6 @@ const FoodDetail = ({ food, onBack, addToCart }) => {
   );
 };
 
-/* ── Cart ────────────────────────────────────────────────────────── */
 const CartScreen = ({ cart, addToCart, removeFromCart, user, onOrderPlaced }) => {
   const [promo, setPromo]     = useState("");
   const [address, setAddress] = useState(user?.address||"");
@@ -443,9 +440,6 @@ const CartScreen = ({ cart, addToCart, removeFromCart, user, onOrderPlaced }) =>
   );
 };
 
-/* ══════════════════════════════════════════════════════════════════
-   ORDERS SCREEN — Privacy per role
-══════════════════════════════════════════════════════════════════ */
 const OrdersScreen = ({ role }) => {
   const [orders, setOrders]   = useState([]);
   const [loading, setLoading] = useState(true);
@@ -484,8 +478,6 @@ const OrdersScreen = ({ role }) => {
               <div style={{ flex:1, marginRight:8 }}>
                 <div style={{ fontWeight:800, fontSize:14, color:T.dark }}>Order #{order._id.slice(-6).toUpperCase()}</div>
                 <div style={{ fontSize:12, color:T.muted, marginTop:2 }}>{order.items?.map(i=>`${i.dish_name} ×${i.quantity}`).join(", ")}</div>
-
-                {/* ── CUSTOMER: Cook name + Driver name/phone ── */}
                 {role==="customer" && (
                   <div style={{ marginTop:8 }}>
                     {order.cook_name && <div style={{ fontSize:12, color:T.muted, marginBottom:6 }}>👨‍🍳 Chef: <b style={{ color:T.dark }}>{order.cook_name}</b></div>}
@@ -498,8 +490,6 @@ const OrdersScreen = ({ role }) => {
                     )}
                   </div>
                 )}
-
-                {/* ── COOK: Customer name + address only (no phone) ── */}
                 {role==="cook" && (
                   <div style={{ marginTop:8 }}>
                     {order.customer_name && (
@@ -515,21 +505,17 @@ const OrdersScreen = ({ role }) => {
                     )}
                   </div>
                 )}
-
-                {/* ── DRIVER in orders list ── */}
                 {role==="driver" && order.address && (
                   <span onClick={()=>openMaps(order.address)} style={{ cursor:"pointer", color:T.info, fontSize:11, textDecoration:"underline", display:"block", marginTop:4 }}>📍 {order.address}</span>
                 )}
               </div>
               <StatusDot status={order.status}/>
             </div>
-
             {role==="customer" && order.status==="delivering" && (
               <div style={{ background:T.successLight, borderRadius:12, padding:"8px 14px", marginBottom:10 }}>
                 <div style={{ fontSize:12, color:T.success, fontWeight:700 }}>🛵 On the way!</div>
               </div>
             )}
-
             {role==="customer" && order.status!=="delivered" && order.status!=="cancelled" && (
               <div style={{ marginBottom:10 }}>
                 {steps.map((step,i)=>(
@@ -545,7 +531,6 @@ const OrdersScreen = ({ role }) => {
                 ))}
               </div>
             )}
-
             {role==="cook" && (
               <div style={{ display:"flex", gap:8, marginTop:8 }}>
                 {order.status==="pending" && <>
@@ -573,7 +558,6 @@ const OrdersScreen = ({ role }) => {
   );
 };
 
-/* ── Cook Dashboard ──────────────────────────────────────────────── */
 const CookDashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -601,7 +585,6 @@ const CookDashboard = () => {
   );
 };
 
-/* ── Cook Menu ───────────────────────────────────────────────────── */
 const CookMenu = ({ user }) => {
   const [dishes, setDishes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -662,7 +645,6 @@ const CookMenu = ({ user }) => {
   );
 };
 
-/* ── Admin Overview ──────────────────────────────────────────────── */
 const AdminOverview = () => {
   const [stats, setStats] = useState(null);
   const [orders, setOrders] = useState([]);
@@ -720,9 +702,6 @@ const AdminOverview = () => {
   );
 };
 
-/* ══════════════════════════════════════════════════════════════════
-   DRIVER HOME — Clean organized layout
-══════════════════════════════════════════════════════════════════ */
 const DriverHome = () => {
   const [stats, setStats]     = useState(null);
   const [online, setOnline]   = useState(true);
@@ -743,12 +722,10 @@ const DriverHome = () => {
 
   const acceptJob     = async (id) => { try { await api('PATCH',`/orders/${id}/status`,{status:'delivering'}); load(); } catch(e){ alert(e.message); } };
   const markDelivered = async (id) => { try { await api('PATCH',`/orders/${id}/status`,{status:'delivered'});  load(); } catch(e){ alert(e.message); } };
-
   const d = stats?.active_delivery;
 
   return (
     <div style={S.screen}>
-      {/* Header */}
       <div style={{ padding:"20px 18px", background:"linear-gradient(135deg, #0F2E1C, #1E6B38)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
           <h2 style={{ color:"#fff", margin:0, fontWeight:900, fontSize:22 }}>Driver Dashboard 🛵</h2>
@@ -767,60 +744,33 @@ const DriverHome = () => {
           </div>
         )}
       </div>
-
       <div style={{ padding:"16px 18px" }}>
         {loading ? <Spinner/> : (<>
-
-          {/* ══════════════════════════════════════════════
-              ACTIVE DELIVERY — Clean Uber-like layout
-          ══════════════════════════════════════════════ */}
           {d && (
             <div style={{ ...S.card, border:`2px solid ${T.primary}`, marginBottom:16 }}>
               <div style={{ fontSize:12, color:T.primary, fontWeight:800, marginBottom:14, display:"flex", alignItems:"center", gap:6 }}>
                 <span style={{ width:8, height:8, borderRadius:"50%", background:T.danger, display:"inline-block" }}/>
                 ACTIVE DELIVERY
               </div>
-
-              {/* ─── COOK (Pickup) ─── */}
               <div style={{ background:T.warningLight, borderRadius:14, padding:"12px 14px", marginBottom:10 }}>
                 <div style={{ fontSize:10, fontWeight:800, color:"#92400E", letterSpacing:1, marginBottom:8 }}>🍳 PICKUP — CHEF</div>
-                <div style={{ fontSize:15, fontWeight:700, color:T.dark, marginBottom:4 }}>
-                  {d.cook_name || "Chef"}
-                </div>
+                <div style={{ fontSize:15, fontWeight:700, color:T.dark, marginBottom:4 }}>{d.cook_name||"Chef"}</div>
                 <span onClick={()=>openMaps(d.cook_address)} style={{ cursor:"pointer", color:T.warning, fontSize:13, textDecoration:"underline", display:"block", marginBottom:8 }}>
-                  📍 {d.cook_address || "Address not set"}
+                  📍 {d.cook_address||"Address not set"}
                 </span>
-                {d.cook_phone && (
-                  <>
-                    <div style={{ fontSize:12, color:"#92400E", marginBottom:6 }}>📞 {d.cook_phone}</div>
-                    <ContactBtns phone={d.cook_phone} smsLabel="SMS Chef" callLabel="Call Chef"/>
-                  </>
-                )}
+                {d.cook_phone && <div style={{ fontSize:12, color:"#92400E", marginBottom:6 }}>📞 {d.cook_phone}</div>}
+                <ContactBtns phone={d.cook_phone} smsLabel="SMS Chef" callLabel="Call Chef"/>
               </div>
-
-              {/* ─── CUSTOMER (Dropoff) ─── */}
               <div style={{ background:T.infoLight, borderRadius:14, padding:"12px 14px", marginBottom:12 }}>
                 <div style={{ fontSize:10, fontWeight:800, color:"#1e40af", letterSpacing:1, marginBottom:8 }}>📍 DROPOFF — CUSTOMER</div>
-                <div style={{ fontSize:15, fontWeight:700, color:T.dark, marginBottom:4 }}>
-                  {d.customer_name || "Customer"}
-                </div>
+                <div style={{ fontSize:15, fontWeight:700, color:T.dark, marginBottom:4 }}>{d.customer_name||"Customer"}</div>
                 <span onClick={()=>openMaps(d.address)} style={{ cursor:"pointer", color:T.info, fontSize:13, textDecoration:"underline", display:"block", marginBottom:8 }}>
                   📍 {d.address}
                 </span>
-                {d.customer_phone && (
-                  <>
-                    <div style={{ fontSize:12, color:"#1e40af", marginBottom:6 }}>📞 {d.customer_phone}</div>
-                    <ContactBtns phone={d.customer_phone} smsLabel="SMS Customer" callLabel="Call Customer"/>
-                  </>
-                )}
+                {d.customer_phone && <div style={{ fontSize:12, color:"#1e40af", marginBottom:6 }}>📞 {d.customer_phone}</div>}
+                <ContactBtns phone={d.customer_phone} smsLabel="SMS Customer" callLabel="Call Customer"/>
               </div>
-
-              {/* ─── ETA + Distance ─── */}
-              {routeLoading && (
-                <div style={{ background:T.infoLight, borderRadius:12, padding:"10px", marginBottom:10, textAlign:"center", fontSize:12, color:T.info }}>
-                  📡 Calculating route...
-                </div>
-              )}
+              {routeLoading && <div style={{ background:T.infoLight, borderRadius:12, padding:"10px", marginBottom:10, textAlign:"center", fontSize:12, color:T.info }}>📡 Calculating route...</div>}
               {route && (
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12 }}>
                   <div style={{ background:T.successLight, borderRadius:12, padding:"12px", textAlign:"center" }}>
@@ -833,57 +783,37 @@ const DriverHome = () => {
                   </div>
                 </div>
               )}
-
-              {/* ─── Mark Delivered ─── */}
               <button onClick={()=>markDelivered(d._id)} style={{ background:T.successLight, border:"none", borderRadius:12, padding:"12px", color:T.success, fontSize:14, fontWeight:700, cursor:"pointer", width:"100%" }}>
                 ✓ Mark Delivered
               </button>
             </div>
           )}
-
-          {/* ══════════════════════════════════════════════
-              AVAILABLE JOBS
-          ══════════════════════════════════════════════ */}
           <h3 style={{ margin:"0 0 12px", fontWeight:800, fontSize:17, color:T.dark }}>
             {online ? `Available Jobs (${stats?.available_jobs?.length||0})` : "Go online to see jobs"}
           </h3>
-
           {online && stats?.available_jobs?.map(job=>(
             <div key={job._id} style={S.card}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
                 <span style={{ fontWeight:800, color:T.dark, fontSize:14 }}>#{job._id.slice(-6).toUpperCase()}</span>
                 <span style={{ fontWeight:900, color:T.success, fontSize:16 }}>+${(job.delivery_fee*0.85).toFixed(2)}</span>
               </div>
-
-              {/* Pickup */}
               <div style={{ background:T.warningLight, borderRadius:12, padding:"10px 12px", marginBottom:8 }}>
                 <div style={{ fontSize:10, fontWeight:800, color:"#92400E", letterSpacing:1, marginBottom:4 }}>🍳 PICKUP</div>
-                <span onClick={()=>openMaps(job.cook_address)} style={{ cursor:"pointer", color:T.warning, fontSize:12, textDecoration:"underline" }}>
-                  📍 {job.cook_address || "Not set"}
-                </span>
+                <span onClick={()=>openMaps(job.cook_address)} style={{ cursor:"pointer", color:T.warning, fontSize:12, textDecoration:"underline" }}>📍 {job.cook_address||"Not set"}</span>
               </div>
-
-              {/* Dropoff */}
               <div style={{ background:T.infoLight, borderRadius:12, padding:"10px 12px", marginBottom:10 }}>
                 <div style={{ fontSize:10, fontWeight:800, color:"#1e40af", letterSpacing:1, marginBottom:4 }}>📍 DROPOFF</div>
-                <span onClick={()=>openMaps(job.address)} style={{ cursor:"pointer", color:T.info, fontSize:12, textDecoration:"underline" }}>
-                  📍 {job.address}
-                </span>
+                <span onClick={()=>openMaps(job.address)} style={{ cursor:"pointer", color:T.info, fontSize:12, textDecoration:"underline" }}>📍 {job.address}</span>
               </div>
-
-              <button onClick={()=>acceptJob(job._id)} style={{ ...S.btn, padding:"10px", fontSize:13, borderRadius:12 }}>
-                Accept Delivery
-              </button>
+              <button onClick={()=>acceptJob(job._id)} style={{ ...S.btn, padding:"10px", fontSize:13, borderRadius:12 }}>Accept Delivery</button>
             </div>
           ))}
-
         </>)}
       </div>
     </div>
   );
 };
 
-/* ── Profile ─────────────────────────────────────────────────────── */
 const ProfileScreen = ({ user, onLogout }) => (
   <div style={S.screen}>
     <TopBar title="Profile"/>
@@ -921,14 +851,18 @@ export default function App() {
   const [tab, setTab]         = useState("home");
   const [cart, setCart]       = useState([]);
   const [selectedFood, setSelectedFood] = useState(null);
+  const [isAdminRoute, setIsAdminRoute] = useState(false);
   const cartCount = cart.reduce((s,i)=>s+i.qty,0);
-useEffect(() => {
-  if (window.location.pathname === '/admin-secret-2026') {
-    setRole("admin");
-    setScreen("auth");
-  }
-}, []);
-  useEffect(()=>{
+
+  // Check for secret admin route
+  useEffect(() => {
+    if (window.location.pathname === '/admin-secret-2026') {
+      setIsAdminRoute(true);
+    }
+  }, []);
+
+  // Auto-login if token exists
+  useEffect(() => {
     const token = localStorage.getItem('hc_token');
     if (token) {
       api('GET','/auth/me').then(u=>{
@@ -937,7 +871,7 @@ useEffect(() => {
         setScreen("app");
       }).catch(()=>localStorage.removeItem('hc_token'));
     }
-  },[]);
+  }, []);
 
   const addToCart = (food) => setCart(prev=>{
     const ex=prev.find(i=>i._id===food._id);
@@ -952,18 +886,11 @@ useEffect(() => {
   });
 
   const handleLogin  = (u) => { setUser(u); setRole(u.role); setTab({customer:"home",cook:"dashboard",driver:"home",admin:"overview"}[u.role]); setScreen("app"); };
-  const handleLogout = ()  => { localStorage.removeItem('hc_token'); setScreen("welcome"); setRole(null); setUser(null); setCart([]); setSelectedFood(null); };
+  const handleLogout = ()  => { localStorage.removeItem('hc_token'); setScreen("welcome"); setRole(null); setUser(null); setCart([]); setSelectedFood(null); setIsAdminRoute(false); };
   const handleOrderPlaced = () => { setCart([]); setTab("orders"); };
 
-// Secret admin access via URL
-if (window.location.pathname === '/admin-secret-2026') {
-  if (screen !== "app") {
-    setRole("admin");
-    setScreen("auth");
-  }
-}
-
-  if (screen==="welcome")    return <div style={S.container}><WelcomeScreen onStart={()=>setScreen("roleSelect")}/></div>;  if (screen==="roleSelect") return <div style={S.container}><RoleSelectScreen onSelect={r=>{setRole(r);setScreen("auth");}}/></div>;
+  if (screen==="welcome")    return <div style={S.container}><WelcomeScreen onStart={()=>setScreen("roleSelect")}/></div>;
+  if (screen==="roleSelect") return <div style={S.container}><RoleSelectScreen onSelect={r=>{setRole(r);setScreen("auth");}} showAdmin={isAdminRoute}/></div>;
   if (screen==="auth")       return <div style={S.container}><AuthScreen role={role} onLogin={handleLogin} onBack={()=>setScreen("roleSelect")}/></div>;
   if (selectedFood)          return <div style={S.container}><FoodDetail food={selectedFood} addToCart={addToCart} onBack={()=>setSelectedFood(null)}/></div>;
 
