@@ -5,7 +5,7 @@ import {
   Settings, BarChart2, Navigation, X, Check, PlusCircle, RefreshCw
 } from "lucide-react";
 
-const BASE = 'http://localhost:5000/api';
+const BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const getToken = () => localStorage.getItem('hc_token');
 const api = async (method, path, body) => {
   const res = await fetch(`${BASE}${path}`, {
