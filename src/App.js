@@ -38,7 +38,6 @@ const S = {
 };
 
 const openMaps  = (addr) => { if (!addr) return; window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank'); };
-const openRoute = (from, to) => { if (!from || !to) return; window.open(`https://www.google.com/maps/dir/${encodeURIComponent(from)}/${encodeURIComponent(to)}`, '_blank'); };
 
 // Calculate distance & ETA using OpenStreetMap (free, no API key)
 const calcRoute = async (from, to) => {
