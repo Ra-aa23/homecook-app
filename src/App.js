@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Home, Search, ShoppingCart, User, Star, Clock, MapPin, Plus, Minus,
   ArrowLeft, ChefHat, Package, DollarSign, Users, LogOut, Bell,
-  Settings, BarChart2, Navigation, X, Check, PlusCircle, RefreshCw
+  Settings, BarChart2, Navigation, X, Check, PlusCircle, RefreshCw, Lock
 } from "lucide-react";
 
 const BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -57,6 +57,7 @@ const calcRoute = async (from, to) => {
   } catch { return null; }
 };
 
+// ─── Shared UI ────────────────────────────────────────────────────
 const StatusDot = ({ status }) => {
   const map = { pending:[T.warning,"Pending"], accepted:[T.info,"Accepted"], preparing:[T.info,"Preparing"], ready:[T.success,"Ready"], delivering:[T.primary,"Delivering"], delivered:[T.muted,"Delivered"], cancelled:[T.danger,"Cancelled"] };
   const [col, label] = map[status] || [T.muted, status];
@@ -119,12 +120,12 @@ const WelcomeScreen = ({ onStart }) => (
     <div style={{ textAlign:"center" }}>
       <div style={{ fontSize:72, marginBottom:16 }}>🏠</div>
       <div style={{ fontSize:40, fontWeight:900, color:"#fff", letterSpacing:-1.5 }}>HomeCook</div>
-      <div style={{ color:T.gold, fontSize:15, fontWeight:600, marginTop:8, letterSpacing:2, textTransform:"uppercase" }}>Homemade, Delivered</div>
+      <div style={{ color:T.gold, fontSize:15, fontWeight:600, marginTop:8, letterSpacing:2, textTransform:"uppercase" }}>🇲🇦 Homemade Moroccan Food</div>
     </div>
     <div style={{ textAlign:"center", width:"100%" }}>
-      <p style={{ color:"rgba(255,255,255,0.7)", fontSize:16, lineHeight:1.6, marginBottom:40 }}>Authentic homemade meals from<br/>your local community chefs.</p>
+      <p style={{ color:"rgba(255,255,255,0.7)", fontSize:16, lineHeight:1.6, marginBottom:40 }}>Authentic Moroccan homemade meals<br/>from your local community chefs.</p>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:32 }}>
-        {[["🍲","100+","Cuisines"],["⭐","4.8","Avg Rating"],["🚴","30min","Delivery"]].map(([e,v,l]) => (
+        {[["🍲","10+","Dishes"],["⭐","4.8","Avg Rating"],["🚴","30min","Delivery"]].map(([e,v,l]) => (
           <div key={l} style={{ background:"rgba(255,255,255,0.1)", borderRadius:16, padding:"14px 8px" }}>
             <div style={{ fontSize:22 }}>{e}</div>
             <div style={{ color:"#fff", fontWeight:800, fontSize:16 }}>{v}</div>
@@ -138,19 +139,19 @@ const WelcomeScreen = ({ onStart }) => (
 );
 
 /* ══════════════════════════════════════════════════════════════════
-   ROLE SELECT — Admin hidden from public
+   ROLE SELECT
 ══════════════════════════════════════════════════════════════════ */
 const RoleSelectScreen = ({ onSelect, showAdmin }) => {
   const roles = [
-    { id:"customer", emoji:"🛒", label:"Customer",       desc:"Order homemade food from local chefs",  color:"#FF6B35" },
-    { id:"cook",     emoji:"👨‍🍳", label:"Home Chef",      desc:"Sell your homemade meals locally",      color:"#F5A623" },
+    { id:"customer", emoji:"🛒", label:"Customer",       desc:"Order homemade Moroccan food",          color:"#FF6B35" },
+    { id:"cook",     emoji:"👨‍🍳", label:"Home Chef",      desc:"Sell your homemade Moroccan meals",     color:"#F5A623" },
     { id:"driver",   emoji:"🛵", label:"Delivery Driver", desc:"Deliver orders and earn money",         color:"#22C55E" },
     ...(showAdmin ? [{ id:"admin", emoji:"⚙️", label:"Admin", desc:"Manage the platform", color:"#3B82F6" }] : []),
   ];
   return (
     <div style={{ minHeight:"100vh", background:T.bg, padding:"50px 22px 40px" }}>
       <div style={{ textAlign:"center", marginBottom:40 }}>
-        <div style={{ fontSize:36, marginBottom:10 }}>👋</div>
+        <div style={{ fontSize:36, marginBottom:10 }}>🇲🇦</div>
         <h1 style={{ fontSize:28, fontWeight:900, color:T.dark, margin:0 }}>Join HomeCook</h1>
         <p style={{ color:T.muted, fontSize:15, marginTop:8 }}>How would you like to use the app?</p>
       </div>
@@ -168,18 +169,123 @@ const RoleSelectScreen = ({ onSelect, showAdmin }) => {
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   AUTH
+   FORGOT PASSWORD SCREEN
 ══════════════════════════════════════════════════════════════════ */
-const AuthScreen = ({ role, onLogin, onBack }) => {
-  const [mode, setMode]       = useState("login");
-  const [form, setForm]       = useState({ name:"", email:"", password:"", phone:"" });
+const ForgotPasswordScreen = ({ onBack }) => {
+  const [step, setStep]       = useState(1); // 1=email, 2=phone+new password, 3=success
+  const [email, setEmail]     = useState("");
+  const [phone, setPhone]     = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [hint, setHint]       = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
 
+  const checkEmail = async () => {
+    if (!email) return setError("Please enter your email");
+    setLoading(true); setError("");
+    try {
+      const data = await api('POST', '/auth/forgot-password', { email });
+      setHint(data.maskedPhone || "");
+      setStep(2);
+    } catch(e) { setError(e.message); } finally { setLoading(false); }
+  };
+
+  const resetPassword = async () => {
+    if (!phone) return setError("Please enter your phone number");
+    if (!newPass || newPass.length < 6) return setError("Password must be at least 6 characters");
+    if (newPass !== confirm) return setError("Passwords don't match");
+    setLoading(true); setError("");
+    try {
+      await api('POST', '/auth/reset-password', { email, phone, newPassword: newPass });
+      setStep(3);
+    } catch(e) { setError(e.message); } finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:T.bg }}>
+      <div style={{ background:"linear-gradient(135deg, #1C100A, #3D1F0D)", padding:"50px 24px 40px", textAlign:"center" }}>
+        <div style={{ fontSize:50 }}><Lock size={48} color="#fff"/></div>
+        <h2 style={{ color:"#fff", margin:"10px 0 4px", fontWeight:800, fontSize:24 }}>Reset Password</h2>
+        <p style={{ color:"rgba(255,255,255,0.6)", fontSize:13, margin:0 }}>
+          {step===1 ? "Enter your email to get started" : step===2 ? "Verify your phone number" : "Password reset!"}
+        </p>
+      </div>
+      <div style={{ padding:"24px 22px" }}>
+        {error && <div style={{ background:T.dangerLight, color:T.danger, borderRadius:12, padding:"10px 14px", marginBottom:14, fontSize:13 }}>⚠️ {error}</div>}
+
+        {step===1 && (
+          <>
+            <div style={{ marginBottom:20 }}>
+              <label style={{ fontSize:13, fontWeight:600, color:T.muted, display:"block", marginBottom:6 }}>EMAIL ADDRESS</label>
+              <input style={S.input} type="email" placeholder="your@email.com" value={email} onChange={e=>setEmail(e.target.value)}/>
+            </div>
+            <button onClick={checkEmail} disabled={loading} style={{ ...S.btn, opacity:loading?0.7:1 }}>
+              {loading ? "Checking..." : "Continue →"}
+            </button>
+          </>
+        )}
+
+        {step===2 && (
+          <>
+            <div style={{ background:T.infoLight, borderRadius:12, padding:"12px 14px", marginBottom:20, fontSize:13, color:T.info }}>
+              📞 Enter the phone number linked to your account{hint ? `: ${hint}` : ""}
+            </div>
+            <div style={{ marginBottom:14 }}>
+              <label style={{ fontSize:13, fontWeight:600, color:T.muted, display:"block", marginBottom:6 }}>PHONE NUMBER</label>
+              <input style={S.input} type="tel" placeholder="+1 555-0000" value={phone} onChange={e=>setPhone(e.target.value)}/>
+            </div>
+            <div style={{ marginBottom:14 }}>
+              <label style={{ fontSize:13, fontWeight:600, color:T.muted, display:"block", marginBottom:6 }}>NEW PASSWORD</label>
+              <input style={S.input} type="password" placeholder="At least 6 characters" value={newPass} onChange={e=>setNewPass(e.target.value)}/>
+            </div>
+            <div style={{ marginBottom:24 }}>
+              <label style={{ fontSize:13, fontWeight:600, color:T.muted, display:"block", marginBottom:6 }}>CONFIRM PASSWORD</label>
+              <input style={S.input} type="password" placeholder="Repeat new password" value={confirm} onChange={e=>setConfirm(e.target.value)}/>
+            </div>
+            <button onClick={resetPassword} disabled={loading} style={{ ...S.btn, opacity:loading?0.7:1 }}>
+              {loading ? "Resetting..." : "Reset Password →"}
+            </button>
+          </>
+        )}
+
+        {step===3 && (
+          <div style={{ textAlign:"center", padding:"20px 0" }}>
+            <div style={{ fontSize:60, marginBottom:16 }}>✅</div>
+            <h3 style={{ color:T.success, fontWeight:800, fontSize:22, margin:"0 0 8px" }}>Password Reset!</h3>
+            <p style={{ color:T.muted, marginBottom:24 }}>You can now login with your new password.</p>
+            <button onClick={onBack} style={{ ...S.btn }}>Go to Login →</button>
+          </div>
+        )}
+
+        {step !== 3 && (
+          <div style={{ textAlign:"center", marginTop:16 }}>
+            <span style={{ color:T.muted, fontSize:13, cursor:"pointer" }} onClick={onBack}>← Back to Login</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   AUTH SCREEN
+══════════════════════════════════════════════════════════════════ */
+const AuthScreen = ({ role, onLogin, onBack }) => {
+  const [mode, setMode]         = useState("login");
+  const [showForgot, setShowForgot] = useState(false);
+  const [form, setForm]         = useState({ name:"", email:"", password:"", phone:"" });
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+
   useEffect(() => {
-    const demos = { customer:"customer@demo.com", cook:"cook@demo.com", driver:"driver@demo.com", admin:"admin@demo.com" };
-    setForm(f => ({ ...f, email: demos[role]||"", password:"password123" }));
+    if (role !== "admin") {
+      const demos = { customer:"customer@demo.com", cook:"cook@demo.com", driver:"driver@demo.com" };
+      setForm(f => ({ ...f, email: demos[role]||"", password:"password123" }));
+    }
   }, [role]);
+
+  if (showForgot) return <ForgotPasswordScreen onBack={() => setShowForgot(false)}/>;
 
   const handleSubmit = async () => {
     setError(""); setLoading(true);
@@ -199,8 +305,12 @@ const AuthScreen = ({ role, onLogin, onBack }) => {
     <div style={{ minHeight:"100vh", background:T.bg }}>
       <div style={{ background:"linear-gradient(135deg, #1C100A, #3D1F0D)", padding:"50px 24px 40px", textAlign:"center" }}>
         <div style={{ fontSize:50 }}>{roleEmoji[role]}</div>
-        <h2 style={{ color:"#fff", margin:"10px 0 4px", fontWeight:800, fontSize:24 }}>{mode==="login" ? "Welcome back" : `Join as ${roleLabel[role]}`}</h2>
-        <p style={{ color:"rgba(255,255,255,0.6)", fontSize:13, margin:0 }}>{mode==="login" ? "Demo: email pre-filled, password: password123" : "Create your account"}</p>
+        <h2 style={{ color:"#fff", margin:"10px 0 4px", fontWeight:800, fontSize:24 }}>
+          {mode==="login" ? "Welcome back" : `Join as ${roleLabel[role]}`}
+        </h2>
+        <p style={{ color:"rgba(255,255,255,0.6)", fontSize:13, margin:0 }}>
+          {mode==="login" && role!=="admin" ? "Demo: email pre-filled, password: password123" : mode==="login" ? "Admin access only" : "Create your account"}
+        </p>
       </div>
       <div style={{ padding:"24px 22px" }}>
         {error && <div style={{ background:T.dangerLight, color:T.danger, borderRadius:12, padding:"10px 14px", marginBottom:14, fontSize:13 }}>⚠️ {error}</div>}
@@ -218,10 +328,20 @@ const AuthScreen = ({ role, onLogin, onBack }) => {
           <label style={{ fontSize:13, fontWeight:600, color:T.muted, display:"block", marginBottom:6 }}>EMAIL</label>
           <input style={S.input} type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}/>
         </div>
-        <div style={{ marginBottom:24 }}>
+        <div style={{ marginBottom: mode==="login" ? 8 : 24 }}>
           <label style={{ fontSize:13, fontWeight:600, color:T.muted, display:"block", marginBottom:6 }}>PASSWORD</label>
           <input style={S.input} type="password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))}/>
         </div>
+
+        {/* Forgot Password link */}
+        {mode==="login" && (
+          <div style={{ textAlign:"right", marginBottom:20 }}>
+            <span onClick={() => setShowForgot(true)} style={{ color:T.primary, fontSize:13, fontWeight:600, cursor:"pointer" }}>
+              Forgot Password?
+            </span>
+          </div>
+        )}
+
         <button onClick={handleSubmit} disabled={loading} style={{ ...S.btn, opacity:loading?0.7:1, boxShadow:"0 6px 20px rgba(255,107,53,0.35)" }}>
           {loading ? "Please wait..." : mode==="login" ? "Sign In →" : "Create Account →"}
         </button>
@@ -242,12 +362,10 @@ const AuthScreen = ({ role, onLogin, onBack }) => {
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   CUSTOMER HOME
+   CUSTOMER HOME — 🇲🇦 Moroccan food
 ══════════════════════════════════════════════════════════════════ */
 const CustomerHome = ({ addToCart, onFoodSelect }) => {
   const [dishes, setDishes]   = useState([]);
-  const [cats, setCats]       = useState(["All"]);
-  const [cat, setCat]         = useState("All");
   const [search, setSearch]   = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
@@ -255,13 +373,10 @@ const CustomerHome = ({ addToCart, onFoodSelect }) => {
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const [d, c] = await Promise.all([
-        api('GET',`/dishes?${new URLSearchParams({...(cat!=="All"?{category:cat}:{}),...(search?{search}:{})})}`),
-        api('GET','/dishes/categories')
-      ]);
-      setDishes(d); setCats(c);
+      const d = await api('GET', `/dishes?${new URLSearchParams({...( search?{search}:{})})}`);
+      setDishes(d);
     } catch(e) { setError(e.message); } finally { setLoading(false); }
-  }, [cat, search]);
+  }, [search]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -271,24 +386,19 @@ const CustomerHome = ({ addToCart, onFoodSelect }) => {
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:6, color:T.muted, fontSize:13, marginBottom:3 }}><MapPin size={13} color={T.primary}/> Raleigh, NC</div>
-            <h2 style={{ margin:0, fontSize:22, fontWeight:900, color:T.dark }}>What's cooking <span style={{ color:T.primary }}>nearby?</span></h2>
+            <h2 style={{ margin:0, fontSize:22, fontWeight:900, color:T.dark }}>🇲🇦 <span style={{ color:T.primary }}>Moroccan</span> Food</h2>
           </div>
           <Bell size={22} color={T.dark}/>
         </div>
         <div style={{ position:"relative", marginBottom:16 }}>
           <Search size={16} style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:T.muted }}/>
-          <input style={{ ...S.input, paddingLeft:40, background:T.bg }} placeholder="Search dishes, cuisines, chefs..." value={search} onChange={e=>setSearch(e.target.value)}/>
+          <input style={{ ...S.input, paddingLeft:40, background:T.bg }} placeholder="Search Moroccan dishes..." value={search} onChange={e=>setSearch(e.target.value)}/>
         </div>
       </div>
-      <div style={{ padding:"0 0 0 18px", overflowX:"auto", whiteSpace:"nowrap", margin:"12px 0 4px", paddingBottom:8 }}>
-        {cats.map(c => (
-          <button key={c} onClick={()=>setCat(c)} style={{ display:"inline-block", marginRight:8, padding:"8px 16px", borderRadius:20, border:`1.5px solid ${cat===c?T.primary:T.border}`, background:cat===c?T.primary:T.card, color:cat===c?"#fff":T.muted, fontSize:13, fontWeight:600, cursor:"pointer" }}>{c}</button>
-        ))}
-      </div>
-      <div style={{ padding:"8px 18px 0" }}>
+      <div style={{ padding:"16px 18px 0" }}>
         {loading ? <Spinner/> : error ? <div style={{ color:T.danger, padding:20, textAlign:"center", fontSize:13 }}>⚠️ {error}</div> : (
           <>
-            <div style={{ fontWeight:700, fontSize:17, color:T.dark, marginBottom:12 }}>{dishes.length} dishes</div>
+            <div style={{ fontWeight:700, fontSize:15, color:T.muted, marginBottom:12 }}>{dishes.length} dishes available</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
               {dishes.map(food => (
                 <div key={food._id} style={{ background:T.card, borderRadius:18, border:`1px solid ${T.border}`, overflow:"hidden", cursor:"pointer" }} onClick={()=>onFoodSelect(food)}>
@@ -337,7 +447,7 @@ const FoodDetail = ({ food, onBack, addToCart }) => {
         </div>
         <div style={{ background:T.card, borderRadius:14, padding:"12px 14px", marginBottom:16, border:`1px solid ${T.border}`, display:"flex", alignItems:"center", gap:10 }}>
           <Avatar name={food.cook_name||"Chef"} size={36}/>
-          <div><div style={{ fontWeight:700, fontSize:14, color:T.dark }}>{food.cook_name}</div><div style={{ fontSize:12, color:T.muted }}>Home Chef</div></div>
+          <div><div style={{ fontWeight:700, fontSize:14, color:T.dark }}>{food.cook_name}</div><div style={{ fontSize:12, color:T.muted }}>🇲🇦 Moroccan Home Chef</div></div>
         </div>
         <p style={{ color:T.muted, fontSize:14, lineHeight:1.6, marginBottom:16 }}>{food.description}</p>
         {food.ingredients?.length > 0 && (
@@ -383,7 +493,7 @@ const CartScreen = ({ cart, addToCart, removeFromCart, user, onOrderPlaced }) =>
     <div style={{ ...S.screen, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"70vh", padding:40, textAlign:"center" }}>
       <div style={{ fontSize:80, marginBottom:16 }}>🛒</div>
       <h3 style={{ color:T.dark, fontWeight:800, fontSize:22, margin:"0 0 8px" }}>Your cart is empty</h3>
-      <p style={{ color:T.muted }}>Browse nearby chefs and add some homemade goodness!</p>
+      <p style={{ color:T.muted }}>Browse our Moroccan dishes and order!</p>
     </div>
   );
 
@@ -415,7 +525,7 @@ const CartScreen = ({ cart, addToCart, removeFromCart, user, onOrderPlaced }) =>
         <div style={S.card}>
           <h4 style={{ margin:"0 0 8px", fontSize:14, fontWeight:700, color:T.dark }}>Promo Code</h4>
           <div style={{ display:"flex", gap:8 }}>
-            <input style={{ ...S.input, flex:1 }} placeholder="HOMECOOKED or WELCOME5" value={promo} onChange={e=>setPromo(e.target.value)}/>
+            <input style={{ ...S.input, flex:1 }} placeholder="HOMECOOKED, WELCOME5, or MOROCCO" value={promo} onChange={e=>setPromo(e.target.value)}/>
             <button style={{ background:T.primary, color:"#fff", border:"none", borderRadius:12, padding:"10px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Apply</button>
           </div>
         </div>
@@ -440,6 +550,9 @@ const CartScreen = ({ cart, addToCart, removeFromCart, user, onOrderPlaced }) =>
   );
 };
 
+/* ══════════════════════════════════════════════════════════════════
+   ORDERS SCREEN — Personal dashboard per user
+══════════════════════════════════════════════════════════════════ */
 const OrdersScreen = ({ role }) => {
   const [orders, setOrders]   = useState([]);
   const [loading, setLoading] = useState(true);
@@ -460,9 +573,16 @@ const OrdersScreen = ({ role }) => {
     catch(e){ alert(e.message); }
   };
 
+  const titleMap = {
+    customer: "My Orders",
+    cook: "My Kitchen Orders",
+    driver: "My Deliveries",
+    admin: "All Orders"
+  };
+
   return (
     <div style={S.screen}>
-      <TopBar title={role==="customer" ? "My Orders" : "Incoming Orders"} action={{ fn:load, icon:<RefreshCw size={14}/>, label:"Refresh" }}/>
+      <TopBar title={titleMap[role]||"Orders"} action={{ fn:load, icon:<RefreshCw size={14}/>, label:"Refresh" }}/>
       <div style={{ padding:"16px 18px" }}>
         {loading ? <Spinner/> : null}
         {error ? <div style={{ color:T.danger, padding:20, textAlign:"center", fontSize:13 }}>⚠️ {error}</div> : null}
@@ -478,6 +598,8 @@ const OrdersScreen = ({ role }) => {
               <div style={{ flex:1, marginRight:8 }}>
                 <div style={{ fontWeight:800, fontSize:14, color:T.dark }}>Order #{order._id.slice(-6).toUpperCase()}</div>
                 <div style={{ fontSize:12, color:T.muted, marginTop:2 }}>{order.items?.map(i=>`${i.dish_name} ×${i.quantity}`).join(", ")}</div>
+
+                {/* Customer dashboard */}
                 {role==="customer" && (
                   <div style={{ marginTop:8 }}>
                     {order.cook_name && <div style={{ fontSize:12, color:T.muted, marginBottom:6 }}>👨‍🍳 Chef: <b style={{ color:T.dark }}>{order.cook_name}</b></div>}
@@ -490,6 +612,8 @@ const OrdersScreen = ({ role }) => {
                     )}
                   </div>
                 )}
+
+                {/* Cook dashboard */}
                 {role==="cook" && (
                   <div style={{ marginTop:8 }}>
                     {order.customer_name && (
@@ -505,17 +629,28 @@ const OrdersScreen = ({ role }) => {
                     )}
                   </div>
                 )}
+
+                {/* Driver dashboard */}
                 {role==="driver" && order.address && (
                   <span onClick={()=>openMaps(order.address)} style={{ cursor:"pointer", color:T.info, fontSize:11, textDecoration:"underline", display:"block", marginTop:4 }}>📍 {order.address}</span>
+                )}
+
+                {/* Admin dashboard */}
+                {role==="admin" && (
+                  <div style={{ fontSize:11, color:T.muted, marginTop:4 }}>
+                    {order.customer_name} → {order.cook_name} {order.driver_name ? `→ ${order.driver_name}` : ""}
+                  </div>
                 )}
               </div>
               <StatusDot status={order.status}/>
             </div>
+
             {role==="customer" && order.status==="delivering" && (
               <div style={{ background:T.successLight, borderRadius:12, padding:"8px 14px", marginBottom:10 }}>
                 <div style={{ fontSize:12, color:T.success, fontWeight:700 }}>🛵 On the way!</div>
               </div>
             )}
+
             {role==="customer" && order.status!=="delivered" && order.status!=="cancelled" && (
               <div style={{ marginBottom:10 }}>
                 {steps.map((step,i)=>(
@@ -531,6 +666,7 @@ const OrdersScreen = ({ role }) => {
                 ))}
               </div>
             )}
+
             {role==="cook" && (
               <div style={{ display:"flex", gap:8, marginTop:8 }}>
                 {order.status==="pending" && <>
@@ -547,6 +683,7 @@ const OrdersScreen = ({ role }) => {
             {role==="driver" && order.status==="delivering" && order.driver_id && (
               <button onClick={()=>updateStatus(order._id,"delivered")} style={{ background:T.success, color:"#fff", border:"none", borderRadius:12, padding:"10px", fontSize:13, fontWeight:700, cursor:"pointer", width:"100%", marginTop:8 }}>✓ Mark Delivered</button>
             )}
+
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:10, borderTop:`1px solid ${T.border}`, marginTop:8 }}>
               <span style={{ fontSize:14, fontWeight:800, color:T.primary }}>${order.total?.toFixed(2)}</span>
               <span style={{ fontSize:11, color:T.muted }}>{new Date(order.created_at).toLocaleDateString()}</span>
@@ -558,14 +695,16 @@ const OrdersScreen = ({ role }) => {
   );
 };
 
-const CookDashboard = () => {
+/* ── Cook Dashboard ──────────────────────────────────────────────── */
+const CookDashboard = ({ user }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   useEffect(()=>{ api('GET','/users/cook/stats').then(setStats).catch(console.error).finally(()=>setLoading(false)); },[]);
   return (
     <div style={S.screen}>
       <div style={{ padding:"20px 18px", background:"linear-gradient(135deg, #1C100A, #3D1F0D)" }}>
-        <h2 style={{ color:"#fff", margin:"0 0 16px", fontWeight:900, fontSize:22 }}>Chef Dashboard 👨‍🍳</h2>
+        <p style={{ color:"rgba(255,255,255,0.6)", fontSize:13, margin:"0 0 4px" }}>Welcome back,</p>
+        <h2 style={{ color:"#fff", margin:"0 0 16px", fontWeight:900, fontSize:22 }}>👨‍🍳 {user?.name||"Chef"}</h2>
         {loading ? <Spinner/> : stats && (
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
             {[[`$${stats.today?.earnings||0}`,"Today"],[stats.today?.orders||0,"Orders"],[`${stats.rating?.avg||0}★`,"Rating"]].map(([v,l])=>(
@@ -578,18 +717,19 @@ const CookDashboard = () => {
         )}
       </div>
       <div style={{ padding:"16px 18px" }}>
-        <h3 style={{ margin:"0 0 12px", fontWeight:800, fontSize:17, color:T.dark }}>Manage Orders</h3>
+        <h3 style={{ margin:"0 0 12px", fontWeight:800, fontSize:17, color:T.dark }}>My Kitchen Orders</h3>
         <OrdersScreen role="cook"/>
       </div>
     </div>
   );
 };
 
+/* ── Cook Menu ───────────────────────────────────────────────────── */
 const CookMenu = ({ user }) => {
   const [dishes, setDishes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name:"", price:"", category:"North African", description:"", emoji:"🍲", ingredients:"", prep_time:"30 min" });
+  const [form, setForm] = useState({ name:"", price:"", category:"Moroccan", description:"", emoji:"🍲", ingredients:"", prep_time:"30 min" });
   const [saving, setSaving] = useState(false);
 
   const load = () => { setLoading(true); api('GET',`/dishes?cook_id=${user?._id||user?.id}`).then(setDishes).catch(console.error).finally(()=>setLoading(false)); };
@@ -599,28 +739,22 @@ const CookMenu = ({ user }) => {
     setSaving(true);
     try {
       await api('POST','/dishes',{ ...form, price:parseFloat(form.price), ingredients:form.ingredients.split(',').map(s=>s.trim()) });
-      setAdding(false); setForm({ name:"", price:"", category:"North African", description:"", emoji:"🍲", ingredients:"", prep_time:"30 min" }); load();
+      setAdding(false); setForm({ name:"", price:"", category:"Moroccan", description:"", emoji:"🍲", ingredients:"", prep_time:"30 min" }); load();
     } catch(e){ alert(e.message); } finally{ setSaving(false); }
   };
 
   return (
     <div style={S.screen}>
-      <TopBar title="My Menu" action={{ fn:()=>setAdding(true), icon:<PlusCircle size={16}/>, label:"Add Dish" }}/>
+      <TopBar title="My Menu 🇲🇦" action={{ fn:()=>setAdding(true), icon:<PlusCircle size={16}/>, label:"Add Dish" }}/>
       {adding && (
         <div style={{ padding:"16px 18px", background:T.infoLight, borderBottom:`1px solid ${T.border}` }}>
-          <h4 style={{ margin:"0 0 14px", fontWeight:700, color:T.dark }}>Add New Dish</h4>
+          <h4 style={{ margin:"0 0 14px", fontWeight:700, color:T.dark }}>Add New Moroccan Dish</h4>
           {[["Dish Name","name","e.g. Harira Soup"],["Price ($)","price","e.g. 9.99"],["Emoji","emoji","🍲"],["Prep Time","prep_time","30 min"],["Ingredients (comma separated)","ingredients","Lamb, Onion, Spices"],["Description","description","Describe your dish..."]].map(([l,k,ph])=>(
             <div key={k} style={{ marginBottom:10 }}>
               <label style={{ fontSize:12, color:T.muted, fontWeight:600, display:"block", marginBottom:4 }}>{l}</label>
               <input style={S.input} placeholder={ph} value={form[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))}/>
             </div>
           ))}
-          <div style={{ marginBottom:10 }}>
-            <label style={{ fontSize:12, color:T.muted, fontWeight:600, display:"block", marginBottom:4 }}>CATEGORY</label>
-            <select style={{ ...S.input }} value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>
-              {["North African","Indian","Italian","Chinese","Caribbean","Mexican","Sweets","Other"].map(c=><option key={c}>{c}</option>)}
-            </select>
-          </div>
           <div style={{ display:"flex", gap:10 }}>
             <button onClick={()=>setAdding(false)} style={{ ...S.btnOutline, flex:1, padding:"11px", fontSize:13, borderRadius:12 }}>Cancel</button>
             <button onClick={saveDish} disabled={saving} style={{ ...S.btn, flex:2, padding:"11px", fontSize:13, borderRadius:12, opacity:saving?0.7:1 }}>{saving?"Saving...":"Save Dish"}</button>
@@ -628,7 +762,12 @@ const CookMenu = ({ user }) => {
         </div>
       )}
       <div style={{ padding:"16px 18px" }}>
-        {loading ? <Spinner/> : dishes.map(dish=>(
+        {loading ? <Spinner/> : dishes.length === 0 ? (
+          <div style={{ textAlign:"center", padding:"40px 20px" }}>
+            <div style={{ fontSize:50 }}>🍲</div>
+            <p style={{ color:T.muted, marginTop:12 }}>No dishes yet. Add your first Moroccan dish!</p>
+          </div>
+        ) : dishes.map(dish=>(
           <div key={dish._id} style={{ ...S.card, display:"flex", alignItems:"center", gap:12 }}>
             <div style={{ fontSize:36 }}>{dish.emoji||"🍲"}</div>
             <div style={{ flex:1 }}>
@@ -645,13 +784,49 @@ const CookMenu = ({ user }) => {
   );
 };
 
+/* ── Cook Earnings ───────────────────────────────────────────────── */
+const CookEarnings = () => {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(()=>{ api('GET','/users/cook/stats').then(setStats).catch(console.error).finally(()=>setLoading(false)); },[]);
+
+  if (loading) return <div style={S.screen}><TopBar title="My Earnings"/><Spinner/></div>;
+
+  return (
+    <div style={S.screen}>
+      <TopBar title="My Earnings 💰"/>
+      <div style={{ padding:"16px 18px" }}>
+        <div style={{ background:`linear-gradient(135deg, #1C100A, #3D1F0D)`, borderRadius:20, padding:"24px 20px", marginBottom:16, textAlign:"center" }}>
+          <p style={{ color:"rgba(255,255,255,0.6)", fontSize:13, margin:"0 0 4px" }}>This Week</p>
+          <div style={{ color:"#fff", fontSize:42, fontWeight:900 }}>${stats?.week?.earnings||"0.00"}</div>
+          <div style={{ color:T.gold, fontSize:13, fontWeight:600 }}>Total earnings</div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          {[
+            [stats?.today?.earnings||0, "Today's Earnings", T.primaryLight, T.primary],
+            [stats?.today?.orders||0, "Orders Today", T.infoLight, T.info],
+            [stats?.rating?.avg||0, "Avg Rating ⭐", T.warningLight, T.warning],
+            [stats?.pending||0, "Pending Orders", T.dangerLight, T.danger],
+          ].map(([v,l,bg,col])=>(
+            <div key={l} style={{ background:bg, borderRadius:14, padding:"14px", textAlign:"center" }}>
+              <div style={{ fontSize:22, fontWeight:900, color:col }}>{typeof v==="number" && l.includes("Rating") ? v+"★" : typeof v==="number" && l.includes("Earnings") ? "$"+v : v}</div>
+              <div style={{ fontSize:12, color:col, fontWeight:600, opacity:0.8 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Admin Overview ──────────────────────────────────────────────── */
 const AdminOverview = () => {
   const [stats, setStats] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   useEffect(()=>{
     Promise.all([api('GET','/users/admin/stats'),api('GET','/orders')])
-      .then(([s,o])=>{ setStats(s); setOrders(o.slice(0,5)); })
+      .then(([s,o])=>{ setStats(s); setOrders(o.slice(0,8)); })
       .catch(console.error).finally(()=>setLoading(false));
   },[]);
   return (
@@ -683,7 +858,7 @@ const AdminOverview = () => {
             </div>
           </div>
         )}
-        <h3 style={{ margin:"0 0 12px", fontWeight:800, fontSize:17, color:T.dark }}>Recent Orders</h3>
+        <h3 style={{ margin:"0 0 12px", fontWeight:800, fontSize:17, color:T.dark }}>All Orders</h3>
         {orders.map(order=>(
           <div key={order._id} style={{ ...S.card, display:"flex", alignItems:"center", gap:12, marginBottom:8 }}>
             <Avatar name={order.customer_name||"?"} size={38} bg={T.infoLight}/>
@@ -702,7 +877,8 @@ const AdminOverview = () => {
   );
 };
 
-const DriverHome = () => {
+/* ── Driver Home ─────────────────────────────────────────────────── */
+const DriverHome = ({ user }) => {
   const [stats, setStats]     = useState(null);
   const [online, setOnline]   = useState(true);
   const [loading, setLoading] = useState(true);
@@ -728,7 +904,10 @@ const DriverHome = () => {
     <div style={S.screen}>
       <div style={{ padding:"20px 18px", background:"linear-gradient(135deg, #0F2E1C, #1E6B38)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <h2 style={{ color:"#fff", margin:0, fontWeight:900, fontSize:22 }}>Driver Dashboard 🛵</h2>
+          <div>
+            <p style={{ color:"rgba(255,255,255,0.6)", fontSize:13, margin:"0 0 2px" }}>Welcome,</p>
+            <h2 style={{ color:"#fff", margin:0, fontWeight:900, fontSize:22 }}>🛵 {user?.name||"Driver"}</h2>
+          </div>
           <button onClick={()=>setOnline(o=>!o)} style={{ background:online?T.success:T.danger, border:"none", borderRadius:20, padding:"8px 16px", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer" }}>
             {online?"● Online":"○ Offline"}
           </button>
@@ -749,24 +928,19 @@ const DriverHome = () => {
           {d && (
             <div style={{ ...S.card, border:`2px solid ${T.primary}`, marginBottom:16 }}>
               <div style={{ fontSize:12, color:T.primary, fontWeight:800, marginBottom:14, display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ width:8, height:8, borderRadius:"50%", background:T.danger, display:"inline-block" }}/>
-                ACTIVE DELIVERY
+                <span style={{ width:8, height:8, borderRadius:"50%", background:T.danger, display:"inline-block" }}/> ACTIVE DELIVERY
               </div>
               <div style={{ background:T.warningLight, borderRadius:14, padding:"12px 14px", marginBottom:10 }}>
                 <div style={{ fontSize:10, fontWeight:800, color:"#92400E", letterSpacing:1, marginBottom:8 }}>🍳 PICKUP — CHEF</div>
                 <div style={{ fontSize:15, fontWeight:700, color:T.dark, marginBottom:4 }}>{d.cook_name||"Chef"}</div>
-                <span onClick={()=>openMaps(d.cook_address)} style={{ cursor:"pointer", color:T.warning, fontSize:13, textDecoration:"underline", display:"block", marginBottom:8 }}>
-                  📍 {d.cook_address||"Address not set"}
-                </span>
+                <span onClick={()=>openMaps(d.cook_address)} style={{ cursor:"pointer", color:T.warning, fontSize:13, textDecoration:"underline", display:"block", marginBottom:8 }}>📍 {d.cook_address||"Address not set"}</span>
                 {d.cook_phone && <div style={{ fontSize:12, color:"#92400E", marginBottom:6 }}>📞 {d.cook_phone}</div>}
                 <ContactBtns phone={d.cook_phone} smsLabel="SMS Chef" callLabel="Call Chef"/>
               </div>
               <div style={{ background:T.infoLight, borderRadius:14, padding:"12px 14px", marginBottom:12 }}>
                 <div style={{ fontSize:10, fontWeight:800, color:"#1e40af", letterSpacing:1, marginBottom:8 }}>📍 DROPOFF — CUSTOMER</div>
                 <div style={{ fontSize:15, fontWeight:700, color:T.dark, marginBottom:4 }}>{d.customer_name||"Customer"}</div>
-                <span onClick={()=>openMaps(d.address)} style={{ cursor:"pointer", color:T.info, fontSize:13, textDecoration:"underline", display:"block", marginBottom:8 }}>
-                  📍 {d.address}
-                </span>
+                <span onClick={()=>openMaps(d.address)} style={{ cursor:"pointer", color:T.info, fontSize:13, textDecoration:"underline", display:"block", marginBottom:8 }}>📍 {d.address}</span>
                 {d.customer_phone && <div style={{ fontSize:12, color:"#1e40af", marginBottom:6 }}>📞 {d.customer_phone}</div>}
                 <ContactBtns phone={d.customer_phone} smsLabel="SMS Customer" callLabel="Call Customer"/>
               </div>
@@ -783,9 +957,7 @@ const DriverHome = () => {
                   </div>
                 </div>
               )}
-              <button onClick={()=>markDelivered(d._id)} style={{ background:T.successLight, border:"none", borderRadius:12, padding:"12px", color:T.success, fontSize:14, fontWeight:700, cursor:"pointer", width:"100%" }}>
-                ✓ Mark Delivered
-              </button>
+              <button onClick={()=>markDelivered(d._id)} style={{ background:T.successLight, border:"none", borderRadius:12, padding:"12px", color:T.success, fontSize:14, fontWeight:700, cursor:"pointer", width:"100%" }}>✓ Mark Delivered</button>
             </div>
           )}
           <h3 style={{ margin:"0 0 12px", fontWeight:800, fontSize:17, color:T.dark }}>
@@ -814,9 +986,10 @@ const DriverHome = () => {
   );
 };
 
+/* ── Profile ─────────────────────────────────────────────────────── */
 const ProfileScreen = ({ user, onLogout }) => (
   <div style={S.screen}>
-    <TopBar title="Profile"/>
+    <TopBar title="My Profile"/>
     <div style={{ padding:"20px 18px" }}>
       <div style={{ ...S.card, display:"flex", alignItems:"center", gap:16, marginBottom:20 }}>
         <Avatar name={user?.name||"?"} size={60}/>
@@ -854,14 +1027,10 @@ export default function App() {
   const [isAdminRoute, setIsAdminRoute] = useState(false);
   const cartCount = cart.reduce((s,i)=>s+i.qty,0);
 
-  // Check for secret admin route
   useEffect(() => {
-    if (window.location.pathname === '/admin-secret-2026') {
-      setIsAdminRoute(true);
-    }
+    if (window.location.pathname === '/admin-secret-2026') setIsAdminRoute(true);
   }, []);
 
-  // Auto-login if token exists
   useEffect(() => {
     const token = localStorage.getItem('hc_token');
     if (token) {
@@ -886,7 +1055,7 @@ export default function App() {
   });
 
   const handleLogin  = (u) => { setUser(u); setRole(u.role); setTab({customer:"home",cook:"dashboard",driver:"home",admin:"overview"}[u.role]); setScreen("app"); };
-  const handleLogout = ()  => { localStorage.removeItem('hc_token'); setScreen("welcome"); setRole(null); setUser(null); setCart([]); setSelectedFood(null); setIsAdminRoute(false); };
+  const handleLogout = ()  => { localStorage.removeItem('hc_token'); setScreen("welcome"); setRole(null); setUser(null); setCart([]); setSelectedFood(null); };
   const handleOrderPlaced = () => { setCart([]); setTab("orders"); };
 
   if (screen==="welcome")    return <div style={S.container}><WelcomeScreen onStart={()=>setScreen("roleSelect")}/></div>;
@@ -903,14 +1072,14 @@ export default function App() {
       if (tab==="profile")   return <ProfileScreen user={user} onLogout={handleLogout}/>;
     }
     if (role==="cook") {
-      if (tab==="dashboard") return <CookDashboard/>;
+      if (tab==="dashboard") return <CookDashboard user={user}/>;
       if (tab==="menu")      return <CookMenu user={user}/>;
       if (tab==="orders")    return <OrdersScreen role="cook"/>;
-      if (tab==="earnings")  return <div style={S.screen}><TopBar title="Earnings"/><div style={{padding:"16px 18px"}}><p style={{color:T.muted}}>Earnings coming soon...</p></div></div>;
+      if (tab==="earnings")  return <CookEarnings/>;
       if (tab==="profile")   return <ProfileScreen user={user} onLogout={handleLogout}/>;
     }
     if (role==="driver") {
-      if (tab==="home")      return <DriverHome/>;
+      if (tab==="home")      return <DriverHome user={user}/>;
       if (tab==="active")    return <OrdersScreen role="driver"/>;
       if (tab==="history")   return <OrdersScreen role="driver"/>;
       if (tab==="profile")   return <ProfileScreen user={user} onLogout={handleLogout}/>;
