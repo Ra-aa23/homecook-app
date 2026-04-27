@@ -950,8 +950,15 @@ export default function App() {
   const handleLogout = ()  => { localStorage.removeItem('hc_token'); setScreen("welcome"); setRole(null); setUser(null); setCart([]); setSelectedFood(null); };
   const handleOrderPlaced = () => { setCart([]); setTab("orders"); };
 
-  if (screen==="welcome")    return <div style={S.container}><WelcomeScreen onStart={()=>setScreen("roleSelect")}/></div>;
-  if (screen==="roleSelect") return <div style={S.container}><RoleSelectScreen onSelect={r=>{setRole(r);setScreen("auth");}}/></div>;
+// Secret admin access via URL
+if (window.location.pathname === '/admin-secret-2026') {
+  if (screen !== "app") {
+    setRole("admin");
+    setScreen("auth");
+  }
+}
+
+  if (screen==="welcome")    return <div style={S.container}><WelcomeScreen onStart={()=>setScreen("roleSelect")}/></div>;  if (screen==="roleSelect") return <div style={S.container}><RoleSelectScreen onSelect={r=>{setRole(r);setScreen("auth");}}/></div>;
   if (screen==="auth")       return <div style={S.container}><AuthScreen role={role} onLogin={handleLogin} onBack={()=>setScreen("roleSelect")}/></div>;
   if (selectedFood)          return <div style={S.container}><FoodDetail food={selectedFood} addToCart={addToCart} onBack={()=>setSelectedFood(null)}/></div>;
 
