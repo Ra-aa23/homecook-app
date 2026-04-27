@@ -922,7 +922,12 @@ export default function App() {
   const [cart, setCart]       = useState([]);
   const [selectedFood, setSelectedFood] = useState(null);
   const cartCount = cart.reduce((s,i)=>s+i.qty,0);
-
+useEffect(() => {
+  if (window.location.pathname === '/admin-secret-2026') {
+    setRole("admin");
+    setScreen("auth");
+  }
+}, []);
   useEffect(()=>{
     const token = localStorage.getItem('hc_token');
     if (token) {
