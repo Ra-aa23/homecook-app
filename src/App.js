@@ -148,7 +148,7 @@ const RoleSelectScreen = ({ onSelect }) => {
     { id:"customer", emoji:"🛒", label:"Customer",       desc:"Order homemade food from local chefs",  color:"#FF6B35" },
     { id:"cook",     emoji:"👨‍🍳", label:"Home Chef",      desc:"Sell your homemade meals locally",      color:"#F5A623" },
     { id:"driver",   emoji:"🛵", label:"Delivery Driver", desc:"Deliver orders and earn money",         color:"#22C55E" },
-    { id:"admin",    emoji:"⚙️", label:"Admin",           desc:"Manage the platform",                   color:"#3B82F6" },
+
   ];
   return (
     <div style={{ minHeight:"100vh", background:T.bg, padding:"50px 22px 40px" }}>
